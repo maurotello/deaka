@@ -6,9 +6,17 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import MarkerClusterGroup from 'react-leaflet-markercluster';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+//import MapEvents from './MapEvents';
 
-// ------ TIPOS ------
+// Configurar los iconos por defecto de Leaflet para evitar problemas de carga
+delete (Icon.Default.prototype as any)._getIconUrl;
+Icon.Default.mergeOptions({
+  iconRetinaUrl: '/icons/default.png',
+  iconUrl: '/icons/default.png',
+  shadowUrl: '/icons/default.png', // Puedes usar una imagen de sombra si tienes una
+});
+
 type Listing = {
   id: string;
   title: string;
@@ -23,53 +31,49 @@ interface MapProps {
   selectedListing: Listing | null;
 }
 
-// ------ COMPONENTE CONTROLADOR ------
+interface MapControllerProps {
+  selectedListing: Listing | null;
+  markerRefs: React.RefObject<Record<string, LeafletMarker | null>>;
+  onBoundsChange: (bounds: LatLngBounds) => void;
+}
+
 function MapController({ 
     selectedListing, 
     markerRefs,
     onBoundsChange 
 }: { 
-    selectedListing: Listing | null, 
-    markerRefs: React.MutableRefObject<Record<string, LeafletMarker | null>>,
-    onBoundsChange: (bounds: LatLngBounds) => void 
+  selectedListing: Listing | null, 
+  markerRefs: React.RefObject<Record<string, LeafletMarker | null>>,
+  onBoundsChange: (bounds: LatLngBounds) => void 
 }) {
   const map = useMap();
-  const isFlyingRef = useRef(false);
-
-  // ▼▼▼ MEJORA CLAVE PARA LA CARGA INICIAL ▼▼▼
-  useEffect(() => {
-    // Cuando el controlador se monta por primera vez, le decimos a la página
-    // cuáles son los límites iniciales del mapa para que haga la primera búsqueda.
-    onBoundsChange(map.getBounds());
-  }, [map, onBoundsChange]);
-
-  // Efecto para centrar el mapa al seleccionar un listado
+  const isMovingRef = useRef(false);
+  
   useEffect(() => {
     if (selectedListing) {
       const marker = markerRefs.current[selectedListing.id];
       if (marker) {
-        isFlyingRef.current = true;
-        const flightDuration = 1.0;
-
+        isMovingRef.current = true;
+        
+        // Centrar el mapa en el marcador
         map.flyTo([selectedListing.latitude, selectedListing.longitude], 17, {
           animate: true,
-          duration: flightDuration,
+          duration: 1.0,
         });
         
+        // Abrir el popup después de un pequeño retraso
         setTimeout(() => {
           marker.openPopup();
-          setTimeout(() => {
-            isFlyingRef.current = false;
-          }, 200); 
-        }, flightDuration * 1000);
+          isMovingRef.current = false;
+        }, 1200); // Un poco más que la duración de flyTo
       }
     }
   }, [selectedListing, map, markerRefs]);
 
-  // Efecto para escuchar los movimientos del usuario
+  // Manejar eventos del mapa solo si no estamos en movimiento programático
   useMapEvents({
     moveend: () => {
-      if (!isFlyingRef.current) {
+      if (!isMovingRef.current) {
         onBoundsChange(map.getBounds());
       }
     },
@@ -78,7 +82,7 @@ function MapController({
   return null;
 }
 
-// ------ LÓGICA DE ÍCONOS ------
+// Funciones para crear los íconos (sin cambios)
 const defaultIcon = new Icon({
   iconUrl: '/icons/default.png',
   iconSize: [38, 38], iconAnchor: [19, 38], popupAnchor: [0, -38],
@@ -92,38 +96,36 @@ const createCustomIcon = (slug: string | null): Icon => {
   });
 };
 
-// ------ COMPONENTE PRINCIPAL DEL MAPA ------
+// Eliminamos el componente MapRefresher ya que no es necesario
 const Map: React.FC<MapProps> = ({ listings, onBoundsChange, selectedListing }) => {
   const markerRefs = useRef<Record<string, LeafletMarker | null>>({});
 
   return (
     <MapContainer center={[-40.8135, -62.9967]} zoom={14} scrollWheelZoom={true} className="w-full h-full">
+      <MapEvents onBoundsChange={onBoundsChange} />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {/* Nos aseguramos de que MarkerClusterGroup esté presente */}
-      <MarkerClusterGroup>
-        {listings.map((listing) => {
-          const customIcon = createCustomIcon(listing.marker_icon_slug);
-          return (
-            <Marker
-              key={listing.id}
-              position={[listing.latitude, listing.longitude]}
-              icon={customIcon}
-              ref={(el) => { markerRefs.current[listing.id] = el; }}
-            >
-              <Popup><span className="font-bold">{listing.title}</span></Popup>
-            </Marker>
-          );
-        })}
-      </MarkerClusterGroup>
+      {listings.map((listing) => {
+        const customIcon = createCustomIcon(listing.marker_icon_slug);
+        return (
+          <Marker
+            key={listing.id}
+            position={[listing.latitude, listing.longitude]}
+            icon={customIcon}
+            ref={(el) => {
+              markerRefs.current[listing.id] = el;
+            }}
+          >
+            <Popup>
+              <span className="font-bold">{listing.title}</span>
+            </Popup>
+          </Marker>
+        );
+      })}
       
-      <MapController 
-        selectedListing={selectedListing} 
-        markerRefs={markerRefs} 
-        onBoundsChange={onBoundsChange} 
-      />
+      <MapController selectedListing={selectedListing} markerRefs={markerRefs} onBoundsChange={onBoundsChange} />
     </MapContainer>
   );
 };
