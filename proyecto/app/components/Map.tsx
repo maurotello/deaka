@@ -1,58 +1,70 @@
 'use client';
 
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import { Icon } from 'leaflet';
+import { Icon, LatLngBounds, Marker as LeafletMarker, Map as LeafletMap } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import MarkerClusterGroup from 'react-leaflet-markercluster';
-
-// ▼▼▼ LA CORRECCIÓN ESTÁ AQUÍ ▼▼▼
-// Borramos la línea incorrecta e importamos los dos CSS de la librería original.
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import MarkerClusterGroup from 'react-leaflet-markercluster';
+import { useEffect, useRef } from 'react';
+import MapEvents from './MapEvents';
 
-
-interface ListingForMap {
+type Listing = {
   id: string;
-  name: string;
+  title: string;
   latitude: number;
   longitude: number;
   marker_icon_slug: string | null;
-}
+};
 
 interface MapProps {
-  listings: ListingForMap[];
+  listings: Listing[];
+  onBoundsChange: (bounds: LatLngBounds) => void;
+  selectedListing: Listing | null;
 }
 
 const defaultIcon = new Icon({
   iconUrl: '/icons/default.png',
-  iconSize: [38, 38],
-  iconAnchor: [19, 38],
-  popupAnchor: [0, -38],
+  iconSize: [38, 38], iconAnchor: [19, 38], popupAnchor: [0, -38],
 });
 
 const createCustomIcon = (slug: string | null): Icon => {
-  if (!slug) {
-    return defaultIcon;
-  }
+  if (!slug) return defaultIcon;
   return new Icon({
     iconUrl: `/icons/${slug}.png`,
-    iconSize: [38, 38],
-    iconAnchor: [19, 38],
-    popupAnchor: [0, -38],
+    iconSize: [38, 38], iconAnchor: [19, 38], popupAnchor: [0, -38],
   });
 };
 
-const Map: React.FC<MapProps> = ({ listings }) => {
-  const position: [number, number] = [-40.8135, -62.9967];
-  const zoomLevel = 14;
+const Map: React.FC<MapProps> = ({ listings, onBoundsChange, selectedListing }) => {
+// 1. ▼▼▼ Volvemos a usar useRef, que es la forma correcta ▼▼▼
+const mapRef = useRef<LeafletMap | null>(null);
+const markerRefs = useRef<Record<string, LeafletMarker | null>>({});
+const clusterRef = useRef<any>(null);
+
+  useEffect(() => {
+    // El efecto ahora vuelve a usar 'mapRef.current'
+    if (!selectedListing || !mapRef.current) return;
+    
+    const marker = markerRefs.current[selectedListing.id];
+    
+    if (marker) {
+      mapRef.current.flyTo([selectedListing.latitude, selectedListing.longitude], 17);
+      marker.openPopup();
+    }
+  }, [selectedListing]);
 
   return (
-    <MapContainer center={position} zoom={zoomLevel} scrollWheelZoom={true} className="w-full h-full">
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-
+    // 2. ▼▼▼ Usamos la prop 'ref', que es el estándar de React ▼▼▼
+    <MapContainer 
+      ref={mapRef} 
+      center={[-40.8135, -62.9967]} 
+      zoom={14} 
+      scrollWheelZoom={true} 
+      className="w-full h-full"
+    >
+      <MapEvents onBoundsChange={onBoundsChange} />
+      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
       <MarkerClusterGroup>
         {listings.map((listing) => {
           const customIcon = createCustomIcon(listing.marker_icon_slug);
@@ -61,9 +73,12 @@ const Map: React.FC<MapProps> = ({ listings }) => {
               key={listing.id}
               position={[listing.latitude, listing.longitude]}
               icon={customIcon}
+              ref={(el) => {
+                markerRefs.current[listing.id] = el;
+              }}
             >
               <Popup>
-                <span className="font-bold">{listing.name}</span>
+                <span className="font-bold">{listing.title}</span>
               </Popup>
             </Marker>
           );

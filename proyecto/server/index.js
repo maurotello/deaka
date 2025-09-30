@@ -23,30 +23,47 @@ app.get('/api/categories', async (req, res) => {
 // Endpoint para OBTENER listings publicados
 app.get('/api/listings', async (req, res) => {
   try {
+    // 1. Extraemos los parámetros de la URL (ej: /api/listings?search=banco&bbox=minLng,minLat,maxLng,maxLat)
+    const { search, bbox } = req.query;
+
+    let queryParams = [];
+    let whereClauses = ["l.status = 'published'"]; // Siempre filtramos por publicados
+
+    // 2. Si hay un término de búsqueda, lo añadimos a la consulta
+    if (search && search.length > 2) {
+      queryParams.push(`%${search}%`); // El texto a buscar
+      whereClauses.push(`l.title ILIKE $${queryParams.length}`); // ILIKE para búsqueda case-insensitive
+    }
+
+    // 3. Si hay un bounding box, lo añadimos a la consulta geoespacial
+    if (bbox) {
+      const [minLng, minLat, maxLng, maxLat] = bbox.split(',').map(parseFloat);
+      queryParams.push(minLng, minLat, maxLng, maxLat);
+      // Usamos PostGIS: location && ST_MakeEnvelope(...) significa "donde la ubicación intersecte con este rectángulo"
+      whereClauses.push(`l.location && ST_MakeEnvelope($${queryParams.length-3}, $${queryParams.length-2}, $${queryParams.length-1}, $${queryParams.length}, 4326)`);
+    }
+
+    // 4. Construimos la consulta final
     const query = `
       SELECT
-        l.id,
-        l.title,
-        l.description,
-        l.address,
+        l.id, l.title,
         ST_Y(l.location::geometry) AS latitude,
         ST_X(l.location::geometry) AS longitude,
         c.marker_icon_slug
-      FROM
-        listings AS l
-      LEFT JOIN
-        categories AS c ON l.category_id = c.id
-      WHERE
-        l.status = 'published';
+      FROM listings AS l
+      LEFT JOIN categories AS c ON l.category_id = c.id
+      WHERE ${whereClauses.join(' AND ')}
+      LIMIT 50; -- Añadimos un límite para no sobrecargar
     `;
-    const { rows } = await db.query(query);
+
+    const { rows } = await db.query(query, queryParams);
     res.status(200).json(rows);
+    
   } catch (error) {
     console.error('Error al obtener los listings:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
-
 // Endpoint para CREAR listings
 app.post('/api/listings', async (req, res) => {
   const { title, listingTypeId, categoryId, location, address, city, province, details } = req.body;
