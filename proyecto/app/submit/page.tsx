@@ -2,49 +2,52 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { LISTING_FIELDS, FormField } from '@/shared/listing-fields';
 import TagInput from '@/app/components/TagInput';
-import { LocationData } from '@/app/components/LocationPicker'; // Importamos el tipo
+import { LocationData } from '@/app/components/LocationPicker';
 
-type ListingTypeSlug = keyof typeof LISTING_FIELDS;
-
-// Pequeño componente para renderizar campos dinámicamente
 const DynamicField = ({ field, value, onChange }: { field: FormField, value: any, onChange: (value: any) => void }) => {
+  const commonClasses = "mt-1 block w-full rounded-md bg-gray-700 border-gray-600 focus:border-green-500 focus:ring focus:ring-green-500 focus:ring-opacity-50 text-white px-3 py-2";
   switch (field.type) {
     case 'textarea':
-      return <textarea value={value || ''} onChange={e => onChange(e.target.value)} placeholder={field.placeholder} className="mt-1 block w-full min-h-[100px] rounded-md bg-gray-700 border-gray-500" />;
+      return <textarea value={value || ''} onChange={e => onChange(e.target.value)} placeholder={field.placeholder} className={`${commonClasses} min-h-[120px]`} />;
     case 'text':
-        if (field.key === 'tags' || field.key === 'amenities') {
-            return <TagInput onChange={onChange} />;
-        }
-        return <input type="text" value={value || ''} onChange={e => onChange(e.target.value)} placeholder={field.placeholder} className="mt-1 block w-full rounded-md bg-gray-700 border-gray-500" />;
+      if (field.key === 'tags' || field.key === 'amenities') {
+        return <TagInput initialTags={value} onChange={onChange} />;
+      }
+      return <input type="text" value={value || ''} onChange={e => onChange(e.target.value)} placeholder={field.placeholder} className={commonClasses} />;
     default:
-      return <input type={field.type} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={field.placeholder} className="mt-1 block w-full rounded-md bg-gray-700 border-gray-500" />;
+      return <input type={field.type} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={field.placeholder} className={commonClasses} />;
   }
 };
 
-
 export default function SubmitPage() {
-  // Estados del formulario
-  const [listingType, setListingType] = useState<ListingTypeSlug>('lugares');
+  const router = useRouter();
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      router.push('/login');
+    } else {
+      setIsCheckingAuth(false);
+    }
+  }, [router]);
+
+  const LocationPicker = useMemo(() => dynamic(
+    () => import('@/app/components/LocationPicker'), 
+    { ssr: false, loading: () => <p className="text-gray-400 text-center py-4">Cargando mapa...</p> }
+  ), []);
+
+  const [listingType, setListingType] = useState<keyof typeof LISTING_FIELDS>('lugares');
   const [title, setTitle] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [details, setDetails] = useState<Record<string, any>>({});
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationData, setLocationData] = useState<LocationData | null>(null);
-  const [submissionStatus, setSubmissionStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [categories, setCategories] = useState<{ id: number; name: string; marker_icon_slug: string | null }[]>([]);
-  const [address, setAddress] = useState('');
-  const [city, setCity] = useState('Viedma');
-  const [province, setProvince] = useState('Río Negro');
+  const [submissionStatus, setSubmissionStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   
-  // ▼▼▼ CARGAMOS EL COMPONENTE DE MAPA DE FORMA DINÁMICA ▼▼▼
- 
-  const LocationPicker = useMemo(() => dynamic(() => import('@/app/components/LocationPicker'), { ssr: false }), []);
-
-
-
-  // Cargar categorías al inicio
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -56,15 +59,17 @@ export default function SubmitPage() {
         console.error('No se pudieron cargar las categorías', error);
       }
     };
-    fetchCategories();
-  }, []);
+    if (!isCheckingAuth) { // Solo carga las categorías si el usuario está autenticado
+        fetchCategories();
+    }
+  }, [isCheckingAuth]);
 
   const resetForm = () => {
-      setTitle('');
-      setCategoryId('');
-      setDetails({});
-      setLocation(null);
-      setListingType('lugares');
+    setTitle('');
+    setCategoryId('');
+    setDetails({});
+    setLocationData(null);
+    setListingType('lugares');
   };
 
   const handleDetailChange = (key: string, value: any) => {
@@ -79,111 +84,114 @@ export default function SubmitPage() {
     }
     setSubmissionStatus('submitting');
     
-    // ▼▼▼ LA CORRECCIÓN ESTÁ AQUÍ ▼▼▼
-    // Creamos un objeto 'details' que incluye la dirección textual
-    const finalDetails = {
-        ...details, // Los campos dinámicos (descripción, etc.)
-        address: locationData.address,
-        city: locationData.city,
-        province: locationData.province
-    };
-    
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      setSubmissionStatus('error');
+      router.push('/login');
+      return;
+    }
+
     const submissionData = { 
       title, 
       listingTypeId: listingType, 
       categoryId: parseInt(categoryId, 10), 
-      // Nos aseguramos de enviar solo lat y lng en la propiedad 'location'
       location: { lat: locationData.lat, lng: locationData.lng },
-      // Y el resto de los datos en 'details'
-      details: finalDetails,
+      address: locationData.address,
+      city: locationData.city,
+      province: locationData.province,
+      details
     };
 
     try {
       const response = await fetch('http://localhost:3001/api/listings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}` 
+        },
         body: JSON.stringify(submissionData),
       });
 
       if (!response.ok) {
-        // Obtenemos más detalles del error del backend
         const errorBody = await response.json();
         throw new Error(errorBody.error || 'Falló el envío del formulario');
       }
       
       setSubmissionStatus('success');
+      setTimeout(() => setSubmissionStatus('idle'), 5000);
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
       setSubmissionStatus('error');
     }
   };
   
   const currentFields = LISTING_FIELDS[listingType];
-  // ▼▼▼ Buscamos el slug del ícono de la categoría seleccionada ▼▼▼
   const selectedCategoryIconSlug = categories.find(cat => cat.id === parseInt(categoryId, 10))?.marker_icon_slug || null;
 
+  if (isCheckingAuth) {
+    return (
+      <main className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <p className="text-white text-lg animate-pulse">Verificando autenticación...</p>
+      </main>
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-gray-900 p-8 text-white">
-      <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-6">
-        <h1 className="text-3xl font-bold">Crear un nuevo listado</h1>
-        
-        {submissionStatus === 'success' && <div className="rounded-md bg-green-800 p-4 text-center text-white">¡Listado enviado a revisión con éxito!</div>}
-        {submissionStatus === 'error' && <div className="rounded-md bg-red-800 p-4 text-center text-white">Hubo un error al enviar. Intenta de nuevo.</div>}
+    <main className="min-h-screen bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 text-white">
+      <div className="mx-auto max-w-3xl">
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <div>
+            <h1 className="text-3xl font-bold text-center">Crear un nuevo listado</h1>
+            <p className="text-center text-gray-400 mt-2">Completa la información para enviarlo a revisión.</p>
+          </div>
 
-        <div className="space-y-4 rounded-lg border border-gray-600 p-4">
-          <div className="sm:col-span-3">
-            <label className="block text-sm font-medium">Tipo de Listado</label>
-            <select value={listingType} onChange={e => setListingType(e.target.value as ListingTypeSlug)} className="mt-1 block w-full rounded-md bg-gray-700 border-gray-500">
-              <option value="lugares">Lugar</option>
-              <option value="eventos">Evento</option>
-              <option value="trabajos">Trabajo</option>
-              <option value="bienes-raices">Bienes Raíces</option>
-              <option value="vehiculos">Vehículo</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Título del Listado</label>
-            <input type="text" value={title} onChange={e => setTitle(e.target.value)} required className="mt-1 block w-full rounded-md bg-gray-700 border-gray-500" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Categoría</label>
-            <select value={categoryId} onChange={e => setCategoryId(e.target.value)} required className="mt-1 block w-full rounded-md bg-gray-700 border-gray-500">
-              <option value="" disabled>Selecciona una categoría...</option>
-              {categories.map(cat => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
-            </select>
-          </div>
-          <div>
-              <label>Provincia</label>
-              <input type="text" value={province} onChange={(e) => setProvince(e.target.value)} className="mt-1 block w-full rounded-md bg-gray-700"/>
-          </div>
-          <div>
-              <label>Localidad</label>
-              <input type="text" value={city} onChange={(e) => setCity(e.target.value)} className="mt-1 block w-full rounded-md bg-gray-700"/>
-          </div>
-        </div>
+          {submissionStatus === 'success' && <div className="rounded-md bg-green-800 p-4 text-center text-white">¡Listado enviado a revisión con éxito!</div>}
+          {submissionStatus === 'error' && <div className="rounded-md bg-red-800 p-4 text-center text-white">Hubo un error al enviar. Intenta de nuevo.</div>}
 
-        
-        
-        <LocationPicker 
-            onLocationChange={(data) => setLocationData(data)} // <-- Y aquí
-            iconSlug={selectedCategoryIconSlug} 
-        />
-        
-        <div className="space-y-4 rounded-lg border border-gray-600 p-4">
-            <h2 className="text-lg font-semibold">Detalles de "{listingType.replace('-', ' ')}"</h2>
+          <div className="space-y-6 rounded-lg border border-gray-700 bg-gray-800 p-6 shadow-lg">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-300">Tipo de Listado</label>
+                <select value={listingType} onChange={e => setListingType(e.target.value as keyof typeof LISTING_FIELDS)} className="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 focus:border-green-500 focus:ring focus:ring-green-500 focus:ring-opacity-50 px-3 py-2">
+                    <option value="lugares">Lugar</option>
+                    <option value="eventos">Evento</option>
+                    <option value="trabajos">Trabajo</option>
+                    <option value="bienes-raices">Bienes Raíces</option>
+                    <option value="vehiculos">Vehículo</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300">Categoría</label>
+                <select value={categoryId} onChange={e => setCategoryId(e.target.value)} required className="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 focus:border-green-500 focus:ring focus:ring-green-500 focus:ring-opacity-50 px-3 py-2">
+                  <option value="" disabled>Selecciona una categoría...</option>
+                  {categories.map(cat => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300">Título del Listado</label>
+              <input type="text" value={title} onChange={e => setTitle(e.target.value)} required className="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 focus:border-green-500 focus:ring focus:ring-green-500 focus:ring-opacity-50 px-3 py-2" />
+            </div>
+          </div>
+
+          <LocationPicker onLocationChange={setLocationData} iconSlug={selectedCategoryIconSlug} />
+          
+          <div className="space-y-6 rounded-lg border border-gray-700 bg-gray-800 p-6 shadow-lg">
+            <h2 className="text-xl font-semibold text-green-400">Detalles de "{listingType.replace('-', ' ')}"</h2>
             {currentFields.map((field: FormField) => (
                 <div key={field.key}>
-                    <label className="block text-sm font-medium mb-1">{field.label}</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">{field.label}</label>
                     <DynamicField field={field} value={details[field.key]} onChange={value => handleDetailChange(field.key, value)} />
                 </div>
             ))}
-        </div>
-        
-        <button type="submit" disabled={submissionStatus === 'submitting'} className="w-full rounded-md bg-blue-600 px-4 py-3 text-lg font-bold text-white hover:bg-blue-700 disabled:bg-gray-500">
-          {submissionStatus === 'submitting' ? 'Enviando...' : 'Enviar a Revisión'}
-        </button>
-      </form>
+          </div>
+          
+          <button type="submit" disabled={submissionStatus === 'submitting'} className="w-full rounded-md bg-blue-600 px-4 py-3 text-lg font-bold text-white shadow-lg hover:bg-blue-700 transition-colors duration-300 disabled:bg-gray-500 disabled:cursor-not-allowed">
+            {submissionStatus === 'submitting' ? 'Enviando...' : 'Enviar a Revisión'}
+          </button>
+        </form>
+      </div>
     </main>
   );
 }

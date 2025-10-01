@@ -1,5 +1,7 @@
 // server/db.js
-const { Pool } = require('pg');
+import pg from 'pg';
+const { Pool } = pg;
+//const { Pool } = require('pg');
 
 // Creamos un "pool" de conexiones. Es más eficiente que crear una
 // conexión nueva para cada consulta a la base de datos.
@@ -13,6 +15,11 @@ const pool = new Pool({
 
 // Exportamos una función 'query' que nos permitirá ejecutar consultas
 // desde cualquier parte de nuestro backend de forma segura.
+/*
 module.exports = {
+  query: (text, params) => pool.query(text, params),
+};
+*/
+export default {
   query: (text, params) => pool.query(text, params),
 };

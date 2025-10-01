@@ -44,7 +44,7 @@ const TagInput: React.FC<TagInputProps> = ({ onChange }) => {
         onChange={e => setCurrentTag(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder="Añade una etiqueta y presiona Enter..."
-        className="block w-full rounded-md bg-gray-700 border-gray-500"
+        className="block w-full rounded-md bg-gray-700 border-gray-500 px-3 y py-2"
       />
     </div>
   );

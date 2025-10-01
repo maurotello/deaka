@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import { Icon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
+// 1. INTERFACES (soluciona "Cannot find name 'LocationPickerProps'")
 export interface LocationData {
   lat: number;
   lng: number;
@@ -18,6 +19,15 @@ interface LocationPickerProps {
   iconSlug: string | null;
 }
 
+// 2. LISTA DE PROVINCIAS
+const provinciasArgentinas = [
+  "Buenos Aires", "Catamarca", "Chaco", "Chubut", "Ciudad Autónoma de Buenos Aires",
+  "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa",
+  "La Rioja", "Mendoza", "Misiones", "Neuquén", "Río Negro", "Salta", "San Juan",
+  "San Luis", "Santa Cruz", "Santa Fe", "Santiago del Estero", "Tierra del Fuego", "Tucumán"
+];
+
+// 3. LÓGICA DE ÍCONOS
 const defaultIcon = new Icon({
   iconUrl: '/icons/default.png',
   iconSize: [38, 38], iconAnchor: [19, 38], popupAnchor: [0, -38],
@@ -31,33 +41,28 @@ const createCustomIcon = (slug: string | null): Icon => {
   });
 };
 
+// 4. COMPONENTE PRINCIPAL
 const LocationPicker: React.FC<LocationPickerProps> = ({ onLocationChange, iconSlug }) => {
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('Viedma');
   const [province, setProvince] = useState('Río Negro');
   const [mapVisible, setMapVisible] = useState(false);
   const [markerPosition, setMarkerPosition] = useState<[number, number]>([-40.8135, -62.9967]);
-  const mapRef = useRef<any>(null);
-
-  // Función interna para notificar al componente padre con todos los datos
+  
   const notifyParent = useCallback((lat: number, lng: number) => {
     onLocationChange({ lat, lng, address, city, province });
   }, [onLocationChange, address, city, province]);
-
-  // ▼▼▼ LA CORRECCIÓN PRINCIPAL ESTÁ AQUÍ ▼▼▼
+  
   const handleManualPositionChange = useCallback((newPos: { lat: number, lng: number }) => {
-    // 1. Actualizamos el estado principal con la nueva posición
     setMarkerPosition([newPos.lat, newPos.lng]);
-    // 2. Notificamos al componente padre (la página del formulario)
     notifyParent(newPos.lat, newPos.lng);
   }, [notifyParent]);
 
-
+  // 5. COMPONENTE INTERNO (soluciona "Cannot find name 'DraggableMarker'")
   const DraggableMarker = () => {
     const markerRef = useRef<any>(null);
     const map = useMap();
 
-    // Sincronizamos el mapa si la posición cambia por geocodificación
     useEffect(() => {
         map.flyTo(markerPosition, map.getZoom());
     }, [markerPosition, map]);
@@ -66,7 +71,6 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ onLocationChange, iconS
       dragend() {
         const marker = markerRef.current;
         if (marker != null) {
-          // Cuando se termina de arrastrar, llamamos a la función que actualiza el estado
           handleManualPositionChange(marker.getLatLng());
         }
       },
@@ -75,6 +79,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ onLocationChange, iconS
     return <Marker draggable={true} eventHandlers={eventHandlers} position={markerPosition} ref={markerRef} icon={createCustomIcon(iconSlug)} />;
   };
   
+  // 6. FUNCIÓN DE GEOCODIFICACIÓN (soluciona "handleGeocode is not defined")
   const handleGeocode = async () => {
     const fullAddress = `${address}, ${city}, ${province}`;
     const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}`);
@@ -92,22 +97,26 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ onLocationChange, iconS
     }
   };
 
+  const inputClasses = "mt-1 block w-full rounded-md bg-gray-700 border-gray-600 focus:border-green-500 focus:ring focus:ring-green-500 focus:ring-opacity-50 px-3 py-2 text-white";
+
   return (
-    <div className="space-y-4 rounded-lg border border-gray-600 p-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div className="space-y-6 rounded-lg border border-gray-700 bg-gray-800 p-6 shadow-lg">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div>
             <label className="block text-sm font-medium text-gray-300">Provincia</label>
-            <input type="text" value={province} onChange={(e) => setProvince(e.target.value)} className="mt-1 block w-full rounded-md bg-gray-700 border-gray-500" />
+            <select value={province} onChange={(e) => setProvince(e.target.value)} className={inputClasses}>
+              {provinciasArgentinas.map(p => (<option key={p} value={p}>{p}</option>))}
+            </select>
         </div>
         <div>
             <label className="block text-sm font-medium text-gray-300">Localidad</label>
-            <input type="text" value={city} onChange={(e) => setCity(e.target.value)} className="mt-1 block w-full rounded-md bg-gray-700 border-gray-500" />
+            <input type="text" value={city} onChange={(e) => setCity(e.target.value)} className={inputClasses} />
         </div>
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-300">Domicilio (Calle y Altura)</label>
         <div className="flex items-center space-x-2">
-          <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="block w-full rounded-md border-gray-500 bg-gray-700 text-white" placeholder="Ej: San Martín 550" />
+          <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className={inputClasses} placeholder="Ej: San Martín 550" />
           <button type="button" onClick={handleGeocode} className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 whitespace-nowrap">
             Georeferenciar
           </button>
@@ -117,7 +126,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ onLocationChange, iconS
       {mapVisible && (
         <div className="h-64 w-full mt-4">
           <p className="text-xs text-gray-400 mb-2">Si la ubicación no es exacta, arrastra el marcador a la posición correcta.</p>
-          <MapContainer ref={mapRef} center={markerPosition} zoom={16} scrollWheelZoom={true} className="w-full h-full rounded-md">
+          <MapContainer center={markerPosition} zoom={16} scrollWheelZoom={true} className="w-full h-full rounded-md">
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <DraggableMarker />
           </MapContainer>
