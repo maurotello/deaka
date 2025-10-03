@@ -6,6 +6,10 @@ import { useRouter } from 'next/navigation';
 import { LISTING_FIELDS, FormField } from '@/shared/listing-fields';
 import TagInput from '@/app/components/TagInput';
 import { LocationData } from '@/app/components/LocationPicker';
+import ImageUpload from '@/app/components/ImageUpload'; // Importamos el nuevo componente
+
+
+
 
 const DynamicField = ({ field, value, onChange }: { field: FormField, value: any, onChange: (value: any) => void }) => {
   const commonClasses = "mt-1 block w-full rounded-md bg-gray-700 border-gray-600 focus:border-green-500 focus:ring focus:ring-green-500 focus:ring-opacity-50 text-white px-3 py-2";
@@ -25,6 +29,10 @@ const DynamicField = ({ field, value, onChange }: { field: FormField, value: any
 export default function SubmitPage() {
   const router = useRouter();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  const [coverImage, setCoverImage] = useState<File[]>([]); // Usamos array para consistencia
+  const [galleryImages, setGalleryImages] = useState<File[]>([]);
+
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
@@ -76,7 +84,8 @@ export default function SubmitPage() {
     setDetails(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  
+const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!locationData) {
       alert('Por favor, establece una ubicación en el mapa.');
@@ -91,25 +100,43 @@ export default function SubmitPage() {
       return;
     }
 
-    const submissionData = { 
-      title, 
-      listingTypeId: listingType, 
-      categoryId: parseInt(categoryId, 10), 
-      location: { lat: locationData.lat, lng: locationData.lng },
-      address: locationData.address,
-      city: locationData.city,
-      province: locationData.province,
-      details
-    };
+    // 1. Creamos un objeto FormData para poder enviar archivos y texto juntos.
+    const formData = new FormData();
+
+    // 2. Añadimos todos los campos de texto uno por uno.
+    formData.append('title', title);
+    formData.append('listingTypeId', listingType);
+    formData.append('categoryId', categoryId);
+    // Enviamos lat y lng por separado, como espera el backend con multer
+    formData.append('lat', locationData.lat.toString());
+    formData.append('lng', locationData.lng.toString());
+    formData.append('address', locationData.address);
+    formData.append('city', locationData.city);
+    formData.append('province', locationData.province);
+    // Los detalles (que son un objeto) los enviamos como un string de texto JSON
+    formData.append('details', JSON.stringify(details));
+
+    // 3. Añadimos los archivos (si existen)
+    // El backend los buscará por los nombres 'coverImage' y 'galleryImages'
+    if (coverImage && coverImage.length > 0) {
+      formData.append('coverImage', coverImage[0]);
+    }
+    if (galleryImages && galleryImages.length > 0) {
+      for (let i = 0; i < galleryImages.length; i++) {
+        formData.append('galleryImages', galleryImages[i]);
+      }
+    }
 
     try {
+      // 4. Hacemos la petición fetch con el FormData
       const response = await fetch('http://localhost:3001/api/listings', {
         method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}` 
+        headers: {
+          // ¡MUY IMPORTANTE! NO definimos 'Content-Type'. 
+          // El navegador lo hará automáticamente al enviar FormData.
+          'Authorization': `Bearer ${token}` 
         },
-        body: JSON.stringify(submissionData),
+        body: formData, // Enviamos el objeto FormData directamente
       });
 
       if (!response.ok) {
@@ -119,7 +146,7 @@ export default function SubmitPage() {
       
       setSubmissionStatus('success');
       setTimeout(() => setSubmissionStatus('idle'), 5000);
-      resetForm();
+      resetForm(); // Aquí también deberías resetear los estados de los archivos
     } catch (error: any) {
       console.error(error);
       setSubmissionStatus('error');
@@ -176,6 +203,23 @@ export default function SubmitPage() {
           </div>
 
           <LocationPicker onLocationChange={setLocationData} iconSlug={selectedCategoryIconSlug} />
+
+          {/* ▼▼▼ SECCIÓN DE IMÁGENES AÑADIDA ▼▼▼ */}
+          <div className="space-y-6 rounded-lg border border-gray-700 bg-gray-800 p-6 shadow-lg">
+            <h2 className="text-xl font-semibold text-green-400">Imágenes</h2>
+            <ImageUpload 
+              label="Imagen de Portada (Rectangular, Máx 2MB)"
+              maxFiles={1}
+              maxSizeMB={2}
+              onFilesChange={setCoverImage}
+            />
+            <ImageUpload 
+              label="Galería de Imágenes (Hasta 6, Máx 1MB c/u)"
+              maxFiles={6}
+              maxSizeMB={1}
+              onFilesChange={setGalleryImages}
+            />
+          </div>
           
           <div className="space-y-6 rounded-lg border border-gray-700 bg-gray-800 p-6 shadow-lg">
             <h2 className="text-xl font-semibold text-green-400">Detalles de "{listingType.replace('-', ' ')}"</h2>
