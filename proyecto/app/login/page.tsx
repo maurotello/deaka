@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '../context/AuthContext'; // 1. Importamos el hook useAuth que creamos.
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const { setAuth } = useAuth(); // 2. Obtenemos la función setAuth de nuestro contexto.
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,11 +29,11 @@ export default function LoginPage() {
         throw new Error(data.error || 'Falló el inicio de sesión.');
       }
 
-      // --- ¡LA PARTE MÁS IMPORTANTE! ---
-      // Guardamos el token en el almacenamiento local del navegador
-      localStorage.setItem('authToken', data.token);
+      // 3. ¡EL GRAN CAMBIO! Ya no usamos localStorage.
+      //    Guardamos el accessToken y la información del usuario en el estado global.
+      //    Nuestro backend ahora devuelve un objeto con 'accessToken' y 'user'.
+      setAuth({ user: data.user, accessToken: data.accessToken });
 
-      //alert('¡Inicio de sesión exitoso!');
       router.push('/'); // Redirigimos al mapa principal
 
     } catch (err: any) {
@@ -39,6 +41,7 @@ export default function LoginPage() {
     }
   };
 
+  // El JSX (toda la parte visual del return) no necesita ningún cambio.
   return (
     <main className="min-h-screen bg-gray-900 flex items-center justify-center p-4 text-white">
       <div className="w-full max-w-md space-y-8 bg-gray-800 p-8 rounded-xl shadow-lg">
@@ -48,14 +51,15 @@ export default function LoginPage() {
           </h2>
         </div>
         <form className="space-y-6" onSubmit={handleSubmit}>
+          {/* ... tu formulario sigue igual ... */}
           <div>
             <label className="block text-sm font-medium text-gray-300">Email</label>
-            <input
+            <input 
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 focus:border-green-500 focus:ring focus:ring-green-500 focus:ring-opacity-50 px-3 py-2"
+              className="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 focus:border-green-500 focus:ring focus:ring-green-500 focus:ring-opacity-50 px-3 py-2" 
             />
           </div>
           <div>
@@ -78,7 +82,7 @@ export default function LoginPage() {
             </button>
           </div>
         </form>
-         <p className="text-center text-sm text-gray-400">
+        <p className="text-center text-sm text-gray-400">
           ¿No tienes una cuenta?{' '}
           <Link href="/register" className="font-medium text-green-400 hover:text-green-300">
             Regístrate aquí
