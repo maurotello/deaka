@@ -1,17 +1,20 @@
 import 'dotenv/config';
-//require('dotenv').config(); // Carga las variables de .env al inicio
 console.log('El valor de JWT_SECRET es:', process.env.JWT_SECRET);
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-//const express = require('express');
-//const cors = require('cors');
-//const path = require('path');
+import cookieParser from 'cookie-parser'; // Importado correctamente
 
-// Importamos nuestras rutas
-//const authRoutes = require('./routes/auth');
-//const listingRoutes = require('./routes/listings');
+// 1. Definición ÚNICA y CLARA de las Opciones CORS
+const corsOptions = {
+    origin: 'http://localhost:3000', 
+    credentials: true,    // NECESARIO para enviar y recibir cookies (refresh token)
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], 
+};
+
+
 import authRoutes from './routes/auth.js';
 import listingRoutes from './routes/listings.js';
 
@@ -21,12 +24,25 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middlewares
-app.use(cors());
+// =======================================================
+// MIDDLEWARES LIMPIOS Y ORDENADOS
+// =======================================================
+
+// 1. Cookie Parser (DEBE IR PRIMERO para leer req.cookies)
+app.use(cookieParser()); 
+
+// 2. CORS (Aplicamos la configuración ÚNICA y estricta)
+app.use(cors(corsOptions)); 
+
+// 3. Body Parser para JSON
 app.use(express.json());
+
+// 4. Servir archivos estáticos (uploads)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Usamos las rutas con sus prefijos
+// =======================================================
+// RUTAS
+// =======================================================
 app.use('/api/auth', authRoutes);
 app.use('/api', listingRoutes);
 

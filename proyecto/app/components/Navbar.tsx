@@ -38,15 +38,22 @@ export default function Navbar() {
                         <Link href="/" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700">
                             Mapa
                         </Link>
-                        <Link href="/submit" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700">
-                            Crear Listado
-                        </Link>
+                        
                         
                         {auth.user ? (
                             <>
                                 <span className="text-gray-300 text-sm hidden sm:block">
                                   Hola, {auth.user.email}
                                 </span>
+                                <Link href="/submit" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700">
+                                    Crear Listado
+                                </Link>
+                                <Link 
+                                    href="/my-listings" 
+                                    className="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700"
+                                >
+                                    Mis Listados
+                                </Link> 
                                 <button
                                   onClick={handleLogout}
                                   className="px-3 py-2 rounded-md text-sm font-medium bg-red-600 hover:bg-red-700"

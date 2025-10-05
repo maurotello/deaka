@@ -7,7 +7,7 @@ import { LISTING_FIELDS, FormField } from '@/shared/listing-fields';
 import TagInput from '@/app/components/TagInput';
 import { LocationData } from '@/app/components/LocationPicker';
 import ImageUpload from '@/app/components/ImageUpload'; // Importamos el nuevo componente
-
+import { useAuth } from '../context/AuthContext'; // AÑADIR esta importación
 
 
 
@@ -28,6 +28,7 @@ const DynamicField = ({ field, value, onChange }: { field: FormField, value: any
 
 export default function SubmitPage() {
   const router = useRouter();
+  const { auth } = useAuth();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   const [coverImage, setCoverImage] = useState<File[]>([]); // Usamos array para consistencia
@@ -35,13 +36,12 @@ export default function SubmitPage() {
 
 
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      router.push('/login');
+    if (auth.user === null) { 
+        router.push('/login');
     } else {
-      setIsCheckingAuth(false);
+        setIsCheckingAuth(false);
     }
-  }, [router]);
+  }, [router, auth.user]);
 
   const LocationPicker = useMemo(() => dynamic(
     () => import('@/app/components/LocationPicker'), 
@@ -87,18 +87,22 @@ export default function SubmitPage() {
   
 const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmissionStatus('submitting');
+    const token = auth.accessToken;
+
+    if (!token) {
+        setSubmissionStatus('error');
+        // Esto debería ser redundante si el useEffect funciona, 
+        // pero es una buena práctica defensiva.
+        router.push('/login');
+        return;
+    }
+
     if (!locationData) {
       alert('Por favor, establece una ubicación en el mapa.');
       return;
     }
-    setSubmissionStatus('submitting');
     
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      setSubmissionStatus('error');
-      router.push('/login');
-      return;
-    }
 
     // 1. Creamos un objeto FormData para poder enviar archivos y texto juntos.
     const formData = new FormData();
