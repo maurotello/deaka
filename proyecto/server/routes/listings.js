@@ -5,6 +5,8 @@ import fs from 'fs-extra';
 import path from 'path';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
+import { requireRole } from '../middleware/requireRole.js'; // <-- NUEVO
+
 
 const router = express.Router();
 
@@ -131,6 +133,81 @@ router.get('/my-listings', verifyToken, async (req, res) => {
         res.status(500).json({ error: 'Error interno del servidor.' });
     }
 });
+
+router.patch('/listings/:id/status', verifyToken, requireRole(['admin']), async (req, res) => {
+    const { id: listingId } = req.params;
+    const { status } = req.body; // Esperamos 'published', 'rejected', etc.
+
+    // Seguridad: Aseguramos que el estado sea uno de los permitidos
+    if (!['published', 'rejected', 'pending'].includes(status)) {
+        return res.status(400).json({ error: 'Estado inválido proporcionado.' });
+    }
+
+    try {
+        const query = `
+            UPDATE listings SET status = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+            RETURNING id, status;
+        `;
+        const result = await db.query(query, [status, listingId]);
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Listado no encontrado.' });
+        }
+        
+        res.status(200).json({ message: `Estado del listado ${listingId} actualizado a ${status}` });
+
+    } catch (error) {
+        console.error('Error al actualizar el estado:', error);
+        res.status(500).json({ error: 'Error interno del servidor.' });
+    }
+});
+
+// routes/listings.js (Añadir en la sección de Rutas de la API)
+
+// RUTA PARA ELIMINAR UN LISTADO
+router.delete('/listings/:id', verifyToken, async (req, res) => {
+    const { id: listingId } = req.params;
+    const { id: userId } = req.user; // ID del usuario logueado (desde el JWT)
+
+    try {
+        // PASO A: Verificar propiedad y obtener el path de la carpeta (ID numérico)
+        const checkQuery = await db.query(
+            'SELECT id FROM listings WHERE id = $1 AND user_id = $2',
+            [listingId, userId]
+        );
+
+        if (checkQuery.rowCount === 0) {
+            // Un usuario solo puede borrar sus propios listados (o Admin, si se añade esa lógica)
+            return res.status(403).json({ error: 'Acceso prohibido. No eres el dueño de este listado.' });
+        }
+
+        // PASO B: Eliminar el listado de la Base de Datos
+        // NOTA: Usamos DELETE FROM sin WHERE user_id ya que lo verificamos arriba.
+        // Si tu tabla listings tiene ON DELETE CASCADE, esto podría ser suficiente
+        // pero es más explícito usar la cláusula WHERE.
+        const deleteQuery = await db.query('DELETE FROM listings WHERE id = $1', [listingId]);
+        
+        if (deleteQuery.rowCount === 0) {
+             return res.status(404).json({ error: 'Listado no encontrado para eliminar.' });
+        }
+
+        // PASO C: Eliminar los archivos asociados del disco (Crucial para no dejar basura)
+        // El ID de la carpeta es el ID del listado (ID numérico)
+        const folderPath = path.join('uploads', listingId.toString());
+        if (await fs.pathExists(folderPath)) {
+             // fs-extra: rem() elimina archivos y directorios de forma recursiva
+             await fs.remove(folderPath); 
+        }
+
+        res.status(200).json({ message: 'Listado y archivos asociados eliminados con éxito.' });
+
+    } catch (error) {
+        console.error(`Error al eliminar el listado ${listingId}:`, error);
+        res.status(500).json({ error: 'Error interno del servidor al eliminar el listado.' });
+    }
+});
+
 
 // OBTENER los datos de un listado específico para editarlo
 router.get('/listings/:id', verifyToken, async (req, res) => {

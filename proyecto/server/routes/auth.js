@@ -30,8 +30,10 @@ router.post('/login', async (req, res) => {
     if (!email || !password) return res.status(400).json({ error: 'Email y contraseña son requeridos.' });
 
     try {
-        const { rows } = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+
+        const { rows } = await db.query('SELECT *, role FROM users WHERE email = $1', [email]);
         if (rows.length === 0) return res.status(401).json({ error: 'Credenciales inválidas.' });
+
 
         const user = rows[0];
         const validPassword = await bcrypt.compare(password, user.password_hash);
@@ -39,7 +41,7 @@ router.post('/login', async (req, res) => {
 
         // Usamos la misma variable de entorno en todos lados para consistencia
         const accessToken = jwt.sign(
-            { id: user.id, email: user.email },
+            { id: user.id, email: user.email, role: user.role },
             process.env.JWT_SECRET, // CORREGIDO: Usar JWT_SECRET
             { expiresIn: '15m' }
         );
@@ -63,7 +65,7 @@ router.post('/login', async (req, res) => {
 
         res.json({
             accessToken,
-            user: { id: user.id, email: user.email }
+            user: { id: user.id, email: user.email, role: user.role }
         });
 
     } catch (error) {
@@ -85,7 +87,8 @@ router.get('/refresh', async (req, res) => {
     try {
         const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
 
-        const userResult = await db.query('SELECT id, email, refresh_token FROM users WHERE id = $1', [decoded.id]);
+        const userResult = await db.query('SELECT id, email, refresh_token, role FROM users WHERE id = $1', [decoded.id]); // <-- AÑADIDO: role
+        
         
         // Verificamos que el usuario exista Y que el token en la DB coincida (mayor seguridad)
         if (userResult.rows.length === 0 || userResult.rows[0].refresh_token !== refreshToken) {
@@ -94,17 +97,16 @@ router.get('/refresh', async (req, res) => {
         
         const user = userResult.rows[0];
 
-        // Creamos el nuevo access token
         const accessToken = jwt.sign(
-            { id: user.id, email: user.email },
-            process.env.JWT_SECRET, // Usamos JWT_SECRET
+            { id: user.id, email: user.email, role: user.role }, // <-- AÑADIDO: role
+            process.env.JWT_SECRET,
             { expiresIn: '15m' }
         );
 
         // Devolvemos el nuevo token y los datos del usuario
         res.json({
             accessToken,
-            user: { id: user.id, email: user.email }
+            user: { id: user.id, email: user.email, role: user.role } // <-- AÑADIDO: role
         });
 
     } catch (err) {

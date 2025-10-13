@@ -11,7 +11,7 @@ import cookieParser from 'cookie-parser'; // Importado correctamente
 const corsOptions = {
     origin: 'http://localhost:3000', 
     credentials: true,    // NECESARIO para enviar y recibir cookies (refresh token)
-    methods: ['GET', 'POST', 'PUT', 'DELETE'], 
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], 
 };
 
 

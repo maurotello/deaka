@@ -8,6 +8,14 @@ import Link from 'next/link';
 import { useAuth } from '@/app/context/AuthContext';
 import { useAxiosPrivate } from '../lib/axios';// [8, 11]
 
+
+type UserWithRole = {
+    id: string; 
+    email: string; 
+    role: string;
+}
+
+
 // Definición de tipos para los listados que recibiremos del backend
 type UserListing = {
     id: number;
@@ -20,6 +28,7 @@ type UserListing = {
 
 export default function MyListingsPage() {
     const { auth } = useAuth();
+    const currentUser = auth.user as (UserWithRole | null);
     const router = useRouter();
     const axiosPrivate = useAxiosPrivate(); // Instancia protegida de axios [8]
     
@@ -85,6 +94,32 @@ export default function MyListingsPage() {
         } catch (err) {
             console.error('Error al eliminar:', err);
             alert('Error al eliminar el listado. Verifique su sesión.');
+        }
+    };
+
+    const handlePublish = async (id: number) => {
+        if (!window.confirm('¿Está seguro de que desea PUBLICAR este listado y hacerlo visible en el mapa?')) return;
+
+        try {
+            // Llama a la nueva ruta PATCH que creaste en el backend
+            await axiosPrivate.patch(`/listings/${id}/status`, { status: 'published' });
+            
+            // Actualizar la UI inmediatamente (o recargar los datos)
+            // Opción 1: Recargar todos los listados (la más segura)
+            // Nota: Aquí necesitarías que la función fetchMyListings fuera accesible desde afuera.
+            // Para simplificar, actualizaremos el estado local directamente:
+            setListings(prev => prev.map(l => 
+                l.id === id ? { ...l, status: 'published' } : l
+            ));
+            
+            alert('Listado publicado con éxito.');
+        } catch (err: any) {
+            console.error('Error al publicar:', err);
+            // Mensaje de error más informativo si es un 403 (No autorizado)
+            const errorMessage = err.response?.status === 403 
+                               ? 'Acceso denegado. Solo los administradores pueden publicar.' 
+                               : 'Error al intentar publicar el listado.';
+            alert(errorMessage);
         }
     };
 
@@ -162,6 +197,22 @@ export default function MyListingsPage() {
                                             >
                                                 Borrar
                                             </button>
+                                            {/* ------------------------------------------------------------------ */}
+                                            {/* LÓGICA DE ACTIVACIÓN POR ROL DE ADMINISTRADOR */}
+                                            {/* ------------------------------------------------------------------ */}
+                                            {currentUser && currentUser.role === 'admin' && l.status === 'pending' && (
+                                                <>
+                                                    <span className="text-gray-500 mx-2">|</span>
+                                                    <button
+                                                        onClick={() => handlePublish(l.id)}
+                                                        className="text-green-500 hover:text-green-400 font-bold"
+                                                        title="Publicar este listado para que sea visible en el mapa"
+                                                    >
+                                                        Activar
+                                                    </button>
+                                                </>
+                                            )}
+                                            {/* ------------------------------------------------------------------ */}
                                         </td>
                                     </tr>
                                 ))}

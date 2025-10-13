@@ -11,20 +11,31 @@ const axiosPublic = axios.create({
 
 
 interface AuthState {
-  user: { id: string; email: string } | null;
-  accessToken: string | null;
+  user: { 
+    id: string; 
+    email: string; 
+    role: string; // <-- AÑADIDO: El rol del usuario
+  } | null;
+  accessToken: string | null;
 }
 
 interface AuthContextType {
-  auth: AuthState;
-  setAuth: React.Dispatch<React.SetStateAction<AuthState>>;
+  auth: AuthState;
+  setAuth: React.Dispatch<React.SetStateAction<AuthState>>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [auth, setAuth] = useState<AuthState>({ user: null, accessToken: null });
+  //const [auth, setAuth] = useState<AuthState>({ user: null, accessToken: null });
   const [loading, setLoading] = useState(true); // 1. Añadimos un estado de carga
+
+  const initialAuthState: AuthState = {
+    user: null,
+    accessToken: null,
+  };
+  
+  const [auth, setAuth] = useState<AuthState>(initialAuthState);
 
   // 2. Este useEffect se ejecutará una sola vez cuando la app cargue
   useEffect(() => {
