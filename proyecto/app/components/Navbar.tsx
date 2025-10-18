@@ -2,9 +2,11 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../context/AuthContext'; // Asegúrate de que la ruta sea correcta
+import { useAuth } from '../context/AuthContext'; 
 import axios from 'axios';
 
+// 🚨 Recomendación: Mover esta configuración de axios a un archivo /lib/axios.ts
+// para que no se re-defina en cada componente.
 const api = axios.create({
     baseURL: 'http://localhost:3001/api',
     withCredentials: true 
@@ -13,6 +15,9 @@ const api = axios.create({
 export default function Navbar() {
     const { auth, setAuth } = useAuth();
     const router = useRouter();
+
+    // 🚨 Lógica de Control de Rol
+    const isAdmin = auth.user?.role === 'admin';
 
     const handleLogout = async () => {
         try {
@@ -39,12 +44,22 @@ export default function Navbar() {
                             Mapa
                         </Link>
                         
-                        
                         {auth.user ? (
                             <>
                                 <span className="text-gray-300 text-sm hidden sm:block">
-                                  Hola, {auth.user.email}
+                                    Hola, {auth.user.email}
                                 </span>
+                                
+                                {/* 🚨 ENLACE DE ADMINISTRACIÓN (SOLO ADMIN) */}
+                                {isAdmin && (
+                                    <Link 
+                                        href="/admin/users" 
+                                        className="px-3 py-2 rounded-md text-sm font-medium bg-purple-600 hover:bg-purple-700 transition"
+                                    >
+                                        Administrar Usuarios
+                                    </Link> 
+                                )}
+                                
                                 <Link href="/submit" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700">
                                     Crear Listado
                                 </Link>
@@ -55,10 +70,10 @@ export default function Navbar() {
                                     Mis Listados
                                 </Link> 
                                 <button
-                                  onClick={handleLogout}
-                                  className="px-3 py-2 rounded-md text-sm font-medium bg-red-600 hover:bg-red-700"
+                                    onClick={handleLogout}
+                                    className="px-3 py-2 rounded-md text-sm font-medium bg-red-600 hover:bg-red-700"
                                 >
-                                  Cerrar Sesión
+                                    Cerrar Sesión
                                 </button>
                             </>
                         ) : (

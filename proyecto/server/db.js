@@ -1,25 +1,18 @@
 // server/db.js
+import 'dotenv/config'; // Asegura que las variables de entorno se carguen (para entorno NO Docker)
 import pg from 'pg';
 const { Pool } = pg;
-//const { Pool } = require('pg');
 
-// Creamos un "pool" de conexiones. Es más eficiente que crear una
-// conexión nueva para cada consulta a la base de datos.
+// Usamos el operador de coalescencia nulo (??) para preferir las variables de Docker (process.env)
+// Si no están (fuera de Docker), usamos los valores por defecto.
 const pool = new Pool({
-  user: 'user_dev',
-  host: 'localhost',
-  database: 'directorio_local_db',
-  password: 'password_dev',
-  port: 5433, // El puerto que mapeamos en Docker
+  user: process.env.DB_USER ?? 'user_dev',
+  host: process.env.DB_HOST ?? 'localhost', // ⬅️ CRUCIAL: 'db' en Docker, 'localhost' fuera
+  database: process.env.DB_NAME ?? 'directorio_local_db',
+  password: process.env.DB_PASSWORD ?? 'password_dev',
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 5433, // ⬅️ CRUCIAL: 5432 en Docker, 5433 fuera
 });
 
-// Exportamos una función 'query' que nos permitirá ejecutar consultas
-// desde cualquier parte de nuestro backend de forma segura.
-/*
-module.exports = {
-  query: (text, params) => pool.query(text, params),
-};
-*/
 export default {
   query: (text, params) => pool.query(text, params),
 };

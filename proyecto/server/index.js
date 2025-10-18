@@ -46,6 +46,14 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api/auth', authRoutes);
 app.use('/api', listingRoutes);
 
+// ******* NUEVO *******
+// Ruta de prueba simple para la raíz del servidor
+app.get('/', (req, res) => {
+    res.status(200).json({ message: "Atlas Backend API v1.0 running successfully!" });
+});
+// ******* FIN NUEVO *******
+
+
 app.listen(PORT, () => {
   console.log('El valor de JWT_SECRET es:', process.env.JWT_SECRET ? 'Cargado correctamente' : 'UNDEFINED');
   console.log(`🚀 Servidor backend corriendo en http://localhost:${PORT}`);

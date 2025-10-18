@@ -5,7 +5,8 @@ import axios from 'axios'; // Necesitaremos axios aquí
 
 // La instancia pública de axios que creamos en axios.ts
 const axiosPublic = axios.create({
-    baseURL: 'http://localhost:3001/api',
+    //baseURL: 'http://localhost:3001/api',
+    baseURL: '/api',
     headers: { 'Content-Type': 'application/json' },
 });
 

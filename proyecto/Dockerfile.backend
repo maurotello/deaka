@@ -1,0 +1,22 @@
+# Usa una imagen base de Node.js ligera para el backend
+FROM node:20-alpine AS backend-dev
+
+# Establece el directorio de trabajo
+WORKDIR /app
+
+# Copia los archivos de configuración de dependencias del proyecto raíz
+# ¡CRÍTICO! Copiamos el package.json que tiene el script 'dev:backend'
+COPY package*.json ./
+
+# Instala las dependencias
+RUN npm install
+
+# Copia solo la carpeta del servidor
+COPY server ./
+#COPY .env .env
+
+# El puerto que escuchará tu Express (3001)
+EXPOSE 3001
+
+# El comando de inicio será gestionado por docker-compose.yml
+# CMD ["npm", "run", "dev:backend"]

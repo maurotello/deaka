@@ -1,17 +1,84 @@
-version: '3.8'
-
 services:
+
+  # 1. Base de Datos Geoespacial (PostgreSQL + PostGIS)
   db:
-    image: postgis/postgis:16-3.4  # Usamos una imagen oficial con PostgreSQL 16 y PostGIS 3.4
+    image: postgis/postgis:16-3.4
+    container_name: atlas_db
     restart: always
     environment:
-      - POSTGRES_USER=user_dev
-      - POSTGRES_PASSWORD=password_dev
-      - POSTGRES_DB=directorio_local_db
+      # Valores que ya tienes definidos en tu docker-compose actual
+      POSTGRES_USER: user_dev
+      POSTGRES_PASSWORD: password_dev
+      POSTGRES_DB: directorio_local_db
     ports:
-      - '5433:5432' # Mapeamos el puerto 5432 del contenedor al 5433 de tu máquina
+      # Mantenemos el puerto 5433 para evitar conflictos con instalaciones locales
+      - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data # Esto guarda los datos para que no se pierdan
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck: # Garantiza que la DB esté lista antes de que el Backend se conecte
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. Backend (Node.js/Express API - Carpeta 'server')
+  backend:
+    build:
+      # Contexto: Dónde encontrar el Dockerfile (el directorio 'proyecto')
+      context: ./proyecto
+      # Dockerfile: Usará el archivo que crearemos en 'proyecto/Dockerfile.backend'
+      dockerfile: Dockerfile.backend
+    container_name: atlas_backend
+    restart: always
+    ports:
+      # Exponemos el puerto 3001, como está configurado en tu index.js
+      - "3001:3001"
+    volumes:
+      # Montar el código para desarrollo:
+      - ./proyecto:/app
+      - /app/node_modules # Excluir node_modules de la copia para optimizar
+    environment:
+      # *** ¡CRUCIAL! Configuración de conexión desde el contenedor ***
+      # Usamos el nombre del servicio 'db' (no 'localhost' ni 127.0.0.1)
+      DB_HOST: db
+      DB_USER: user_dev
+      DB_PASSWORD: password_dev
+      DB_NAME: directorio_local_db
+      DB_PORT: 5432 # El puerto INTERNO del contenedor DB
+      # Puedes añadir aquí tu JWT_SECRET desde un .env o directamente
+      # *** SECRETO DE AUTENTICACIÓN (CRÍTICO) ***
+      JWT_SECRET: UNA_CLAVE_SECRETA_LARGA_PARA_DEV 
+      # 🚨 AÑADIR ESTA NUEVA LÍNEA CON OTRA CLAVE LARGA
+      JWT_REFRESH_SECRET: OTRA_CLAVE_SECRETA_LARGA_PARA_REFRESH
+    # Esperar a que la DB pase el Healthcheck
+    depends_on:
+      db:
+        condition: service_healthy 
+    # Comando de inicio del servidor Express
+    command: npm run dev:backend # Asumiendo que `dev:backend` está en `proyecto/package.json`
+
+  # 3. Frontend (Next.js/React - Carpeta 'proyecto')
+  frontend:
+    build:
+      # Contexto: Dónde encontrar el Dockerfile (el directorio 'proyecto')
+      context: ./proyecto
+      # Dockerfile: Usará el archivo que crearemos en 'proyecto/Dockerfile.frontend'
+      dockerfile: Dockerfile.frontend
+    container_name: atlas_frontend
+    ports:
+      # Puerto por defecto de Next.js
+      - "3000:3000" 
+    volumes:
+      # Montar el código para desarrollo (Next.js)
+      - ./proyecto:/app
+      - /app/node_modules
+      - /app/.next # Excluir el cache de build de Next.js
+    environment:
+      NODE_ENV: development
+      # El frontend no necesita la DB, pero podría necesitar configurar ENV si usas SSR/SSG
+    depends_on:
+      - backend # El frontend depende del backend para las API
+    command: npm run dev:frontend
 
 volumes:
   postgres_data:
