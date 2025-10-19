@@ -5,7 +5,8 @@ import dynamic from 'next/dynamic';
 import { LatLngBounds } from 'leaflet'; // <-- AÑADIR: para los tipos de los límites del mapa
 import { useDebounce } from '@/app/hooks/useDebounce'; // <-- AÑADIR: nuestro hook de debounce
 import SearchBar from '@/app/components/SearchBar'; // <-- AÑADIR: el componente de la barra
-
+import { useAuth } from '@/app/context/AuthContext';
+import ProtectedRouteTest from './components/ProtectedRouteTest';
 
 // ▼▼▼ AQUÍ ESTÁ LA CORRECCIÓN ▼▼▼
 // Actualizamos el tipo "Listing" para que coincida con los datos REALES de la API.
@@ -20,6 +21,11 @@ type Listing = {
 };
 
 export default function HomePage() {
+  const { auth } = useAuth();
+  //const auth = { accessToken: null }; 
+  //console.log('📍 Auth en page.tsx:', auth);
+  //console.log('📍 AccessToken?:', auth.accessToken);
+
   const [listings, setListings] = useState<Listing[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');

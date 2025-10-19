@@ -107,4 +107,11 @@ router.post('/listings/:id', verifyToken, multerEditUploader, updateListing); //
 router.patch('/listings/:id/status', verifyToken, requireRole(['admin']), updateListingStatus); // 👈 Limpio
 
 
+router.get('/protected-test', verifyToken, (req, res) => {
+  res.json({
+    message: 'Acceso a ruta protegida exitoso',
+    user: req.user,
+  });
+});
+
 export default router;

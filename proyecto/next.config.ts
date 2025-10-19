@@ -1,13 +1,26 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Esta función configura las redirecciones del proxy
+  // Rewrites: redirige las peticiones /api/* al backend
   async rewrites() {
     return [
       {
-        // Intercepta cualquier ruta que comience con /api/
         source: '/api/:path*',
-        // Y la redirige a nuestro servidor backend en el puerto 3001
-        destination: 'http://localhost:3001/api/:path*',
+        destination: 'http://backend:3001/api/:path*',
+      },
+    ];
+  },
+
+  // Headers: configuración de CORS para cookies
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET,OPTIONS,PATCH,DELETE,POST,PUT' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
+        ],
       },
     ];
   },

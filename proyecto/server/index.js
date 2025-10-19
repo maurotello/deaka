@@ -40,6 +40,7 @@ app.use(express.json());
 // 4. Servir archivos estáticos (uploads)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+
 // =======================================================
 // RUTAS
 // =======================================================

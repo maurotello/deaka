@@ -67,17 +67,22 @@ router.post('/login', async (req, res) => {
         // 🚨 AJUSTE CRÍTICO: Cambiar 'strict' a 'lax' para desarrollo
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production' ? true : false,
-            sameSite: 'Lax',
+            secure: false,
+            sameSite: 'lax',
+            path: '/',
             maxAge: 7 * 24 * 60 * 60 * 1000,
             // 🚨 ELIMINAR O COMENTAR LA LÍNEA:
             // domain: 'localhost' // Esto es lo que suele causar el problema final
         });
-        
+        console.log('Cookie headers enviados:', res.getHeaders()['set-cookie']);
         res.json({
             accessToken,
             user: { id: user.id, email: user.email, role: user.role }
         });
+
+        console.log('✅ LOGIN EXITOSO - Guardando cookie refreshToken');
+        console.log('NODE_ENV:', process.env.NODE_ENV);
+        console.log('secure será:', process.env.NODE_ENV === 'production');
 
     } catch (error) {
         console.error(error);
@@ -90,6 +95,9 @@ router.get('/refresh', async (req, res) => {
     // ▼▼▼ CAMBIO CLAVE ▼▼▼
     // Ahora buscamos 'refreshToken' y SÍ la vamos a encontrar.
     const refreshToken = req.cookies.refreshToken;
+
+    console.log('REQ COOKIES:', req.cookies);
+    console.log('REQ HEADERS cookie:', req.headers.cookie);
 
     if (!refreshToken) {
         return res.status(401).json({ error: 'No autorizado, no se proporcionó token' });
