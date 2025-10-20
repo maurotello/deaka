@@ -9,10 +9,10 @@ const ALLOWED_ROLES = ['user', 'admin']; // Roles permitidos para el sistema
 // ===============================================
 
 export const adminRegisterUser = async (req, res) => {
-    const { email, password, name, role } = req.body;
+    const { email, password, role } = req.body;
     
     // 1. Validación de Entrada
-    if (!name || !email || !password || password.length < 6) {
+    if (!email || !password || password.length < 6) {
         return res.status(400).json({ 
             error: "Faltan campos obligatorios (nombre, email, password) o la contraseña es demasiado corta (mínimo 6 caracteres)." 
         });
@@ -35,14 +35,14 @@ export const adminRegisterUser = async (req, res) => {
 
         // 5. Inserción con Rol Explícito
         const newUser = await db.query(
-            `INSERT INTO users (name, email, password_hash, role)
-             VALUES ($1, $2, $3, $4)
-             RETURNING id, name, email, role, created_at`,
-            [name, email, password_hash, role] 
+            `INSERT INTO users (email, password_hash, role)
+             VALUES ($1, $2, $3)
+             RETURNING id, email, role, created_at`,
+            [email, password_hash, role] 
         );
 
         return res.status(201).json({ 
-            message: `Usuario ${name} creado con rol ${role}.`,
+            message: `Usuario ${email} creado con rol ${role}.`,
             user: newUser.rows[0]
         });
 
@@ -60,7 +60,7 @@ export const getAllUsers = async (req, res) => {
     try {
         // Excluimos password_hash y refresh_token por seguridad y tamaño
         const { rows } = await db.query(
-            'SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC'
+            'SELECT id, email, role, created_at FROM users ORDER BY created_at DESC'
         );
         res.status(200).json(rows);
     } catch (error) {
@@ -75,11 +75,11 @@ export const getAllUsers = async (req, res) => {
 
 export const updateUserRole = async (req, res) => {
     const { id: targetUserId } = req.params;
-    const { name, role } = req.body; 
+    const { email, role } = req.body; 
     
     // 1. Validación
-    if (!name || !role) {
-        return res.status(400).json({ error: "El nombre y el rol son obligatorios." });
+    if (!email || !role) {
+        return res.status(400).json({ error: "El email y el rol son obligatorios." });
     }
     if (!ALLOWED_ROLES.includes(role)) {
         return res.status(400).json({ error: "Rol no válido. Debe ser 'user' o 'admin'." });
@@ -87,11 +87,11 @@ export const updateUserRole = async (req, res) => {
 
     try {
         const query = `
-            UPDATE users SET name = $1, role = $2 
+            UPDATE users SET email = $1, role = $2 
             WHERE id = $3 
-            RETURNING id, name, role, email;
+            RETURNING id, email, role;
         `;
-        const { rows } = await db.query(query, [name, role, targetUserId]);
+        const { rows } = await db.query(query, [email, role, targetUserId]);
 
         if (rows.length === 0) {
             return res.status(404).json({ error: "Usuario no encontrado." });

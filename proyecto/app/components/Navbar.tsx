@@ -59,6 +59,15 @@ export default function Navbar() {
                                         Administrar Usuarios
                                     </Link> 
                                 )}
+
+                                {isAdmin && (
+                                    <Link 
+                                        href="/admin/categories" 
+                                        className="px-3 py-2 rounded-md text-sm font-medium bg-indigo-600 hover:bg-indigo-700 transition"
+                                    >
+                                        Administrar Categorías
+                                    </Link> 
+                                )}
                                 
                                 <Link href="/submit" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700">
                                     Crear Listado

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { LISTING_FIELDS, FormField } from '@/shared/listing-fields';
@@ -8,7 +8,7 @@ import TagInput from '@/app/components/TagInput';
 import { LocationData } from '@/app/components/LocationPicker';
 import ImageUpload from '@/app/components/ImageUpload'; // Importamos el nuevo componente
 import { useAuth } from '../context/AuthContext'; // AÑADIR esta importación
-
+import CustomCategorySelect from '@/app/components/CustomCategorySelect';
 
 
 const DynamicField = ({ field, value, onChange }: { field: FormField, value: any, onChange: (value: any) => void }) => {
@@ -53,7 +53,8 @@ export default function SubmitPage() {
   const [categoryId, setCategoryId] = useState('');
   const [details, setDetails] = useState<Record<string, any>>({});
   const [locationData, setLocationData] = useState<LocationData | null>(null);
-  const [categories, setCategories] = useState<{ id: number; name: string; marker_icon_slug: string | null }[]>([]);
+  //const [categories, setCategories] = useState<{ id: number; name: string; marker_icon_slug: string | null }[]>([]);
+  const [categories, setCategories] = useState<{ id: number; name: string; marker_icon_slug: string | null; parent_id: number | null }[]>([]);
   const [submissionStatus, setSubmissionStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   
   useEffect(() => {
@@ -194,10 +195,12 @@ const handleSubmit = async (e: React.FormEvent) => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300">Categoría</label>
-                <select value={categoryId} onChange={e => setCategoryId(e.target.value)} required className="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 focus:border-green-500 focus:ring focus:ring-green-500 focus:ring-opacity-50 px-3 py-2">
-                  <option value="" disabled>Selecciona una categoría...</option>
-                  {categories.map(cat => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
-                </select>
+                {/* 🛑 REEMPLAZO DEL SELECT NATIVO POR EL COMPONENTE PERSONALIZADO */}
+                <CustomCategorySelect
+                  categories={categories}
+                  categoryId={categoryId}
+                  setCategoryId={setCategoryId}
+                />
               </div>
             </div>
             <div>

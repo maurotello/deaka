@@ -5,6 +5,14 @@ import fs from 'fs-extra';
 import path from 'path';
 import multer from 'multer';
 import { v4 as uuidv4 } from 'uuid';
+import { 
+    getMainCategories,
+    getAllCategories,
+    getSubcategories,
+    createCategory,
+    updateCategory,
+    deleteCategory
+} from '../controllers/categoryController.js';
 
 // 🚨 Importar SOLO las funciones del controlador
 import { 
@@ -105,6 +113,20 @@ router.post('/listings/:id', verifyToken, multerEditUploader, updateListing); //
 // PROTEGIDAS (ADMIN)
 // 🚨 Nota: requireRole se ejecuta después de verifyToken para garantizar que req.user exista.
 router.patch('/listings/:id/status', verifyToken, requireRole(['admin']), updateListingStatus); // 👈 Limpio
+
+
+// RUTAS DE CATEGORÍAS (públicas, no protegidas)
+router.get('/categories', getMainCategories);           // Obtener categorías principales
+router.get('/categories/all', getAllCategories);        // Obtener todas (principales + subcategorías)
+router.get('/categories/:parentId/subcategories', getSubcategories); // Obtener subcategorías
+
+// RUTAS DE CATEGORÍAS (protegidas, solo admin)
+router.post('/categories', verifyToken, requireRole(['admin']), createCategory);
+router.patch('/categories/:id', verifyToken, requireRole(['admin']), updateCategory);
+router.delete('/categories/:id', verifyToken, requireRole(['admin']), deleteCategory);
+
+
+
 
 
 router.get('/protected-test', verifyToken, (req, res) => {

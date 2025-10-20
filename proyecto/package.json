@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm:dev:frontend\" \"npm:dev:backend\"",
-    "dev:frontend": "next dev",
-    "dev:backend": "nodemon --watch server server/index.js",
+    "dev:frontend": "CHOKIDAR_USEPOLLING=true next dev",
+    "dev:backend": "CHOKIDAR_USEPOLLING=true nodemon --watch server server/index.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@types/leaflet": "^1.9.20",
     "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
