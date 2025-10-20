@@ -56,7 +56,7 @@ export default function Navbar() {
                                         href="/admin/users" 
                                         className="px-3 py-2 rounded-md text-sm font-medium bg-purple-600 hover:bg-purple-700 transition"
                                     >
-                                        Administrar Usuarios
+                                        Usuarios
                                     </Link> 
                                 )}
 
@@ -65,9 +65,17 @@ export default function Navbar() {
                                         href="/admin/categories" 
                                         className="px-3 py-2 rounded-md text-sm font-medium bg-indigo-600 hover:bg-indigo-700 transition"
                                     >
-                                        Administrar Categorías
+                                        Categorías
                                     </Link> 
                                 )}
+
+                                {isAdmin && (
+                                    <Link href="/admin/listing-types" className="block text-gray-300 hover:text-green-400 transition">
+                                        Tipos de Listado
+                                    </Link>
+                                )}
+
+
                                 
                                 <Link href="/submit" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700">
                                     Crear Listado

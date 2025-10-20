@@ -26,6 +26,13 @@ import {
     updateListing
 } from '../controllers/listingController.js'; 
 
+import { 
+    getAllListingTypes, 
+    createListingType, 
+    updateListingType, 
+    deleteListingType 
+} from '../controllers/listingTypeController.js'; // 🚨 IMPORTAR NUEVO CONTROLADOR
+
 
 // =======================================================
 // --- CONFIGURACIÓN UNIFICADA DE MULTER (Mantenida aquí) ---
@@ -115,10 +122,16 @@ router.post('/listings/:id', verifyToken, multerEditUploader, updateListing); //
 router.patch('/listings/:id/status', verifyToken, requireRole(['admin']), updateListingStatus); // 👈 Limpio
 
 
+router.get('/categories/parents', getMainCategories); // <--- USAR ESTA EN EL FRONTEND
+// 2. SUBCATEGORÍAS (Para el segundo selector dependiente)
+router.get('/categories/:parentId/subcategories', getSubcategories); // <--- USAR ESTA EN EL FRONTEND
+
+
 // RUTAS DE CATEGORÍAS (públicas, no protegidas)
-router.get('/categories', getMainCategories);           // Obtener categorías principales
+//router.get('/categories', getMainCategories);           // Obtener categorías principales
 router.get('/categories/all', getAllCategories);        // Obtener todas (principales + subcategorías)
-router.get('/categories/:parentId/subcategories', getSubcategories); // Obtener subcategorías
+//router.get('/categories/:parentId/subcategories', getSubcategories); // Obtener subcategorías
+
 
 // RUTAS DE CATEGORÍAS (protegidas, solo admin)
 router.post('/categories', verifyToken, requireRole(['admin']), createCategory);
@@ -126,7 +139,17 @@ router.patch('/categories/:id', verifyToken, requireRole(['admin']), updateCateg
 router.delete('/categories/:id', verifyToken, requireRole(['admin']), deleteCategory);
 
 
+// =======================================================
+// --- NUEVAS RUTAS DE TIPOS DE LISTADO ---
+// =======================================================
 
+// PÚBLICAS (Necesaria para el selector en /submit)
+router.get('/listing-types', getAllListingTypes);
+
+// PROTEGIDAS (ADMIN)
+router.post('/listing-types', verifyToken, requireRole(['admin']), createListingType);
+router.patch('/listing-types/:id', verifyToken, requireRole(['admin']), updateListingType);
+router.delete('/listing-types/:id', verifyToken, requireRole(['admin']), deleteListingType);
 
 
 router.get('/protected-test', verifyToken, (req, res) => {

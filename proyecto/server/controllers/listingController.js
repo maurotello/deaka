@@ -113,14 +113,20 @@ export const getListingForEdit = async (req, res) => {
 export const createListing = async (req, res) => {
     const { id: userId } = req.user;
     // req.body ahora contiene los campos de texto
-    const { title, listingTypeId, categoryId, lat, lng, address, city, province, details } = req.body;
+    const { 
+        title, listingTypeId, categoryId, lat, lng, address, 
+        details, 
+        provinciaId, localidadId, provinceName, cityName 
+    } = req.body;
+
     // req.tempId fue asignado por el middleware de Multer
     const tempId = req.tempId;
 
-    if (!title || !categoryId || !lat || !lng) {
+    // 🚨 VALIDACIÓN: Asegurar que los campos cruciales estén presentes
+    if (!title || !categoryId || !lat || !lng || !address || !provinciaId || !localidadId) {
         // 🚨 Seguridad: Limpiar archivos si la validación falla
         if (tempId) await fs.remove(path.join('uploads', tempId));
-        return res.status(400).json({ error: 'Faltan campos obligatorios.' });
+        return res.status(400).json({ error: 'Faltan campos obligatorios para el listado o la ubicación.' });
     }
 
     try {
@@ -129,15 +135,48 @@ export const createListing = async (req, res) => {
         
         // Manejo de JSON: Convertir la cadena 'details' a objeto JSON para PostgreSQL
         const parsedDetails = JSON.parse(details);
-        const finalDetails = { ...parsedDetails, city, province };
+        const finalDetails = { 
+            ...parsedDetails, 
+            provincia_id: provinciaId,
+            localidad_id: localidadId,
+            province_name: provinceName,
+            city_name: cityName,
+            // Nota: Los campos 'city' y 'province' de la tabla listings se llenarán con los nombres.
+        };
         
         // 🚨 Inserción con PostGIS (GEOGRAPHY type)
+        /*
         const query = `
-            INSERT INTO listings (user_id, title, category_id, listing_type_id, location, address, details, cover_image_path, status)
+            INSERT INTO listings 
+                (user_id, title, category_id, listing_type_id, location, address, details, cover_image_path, status)
             VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography, $7, $8, $9, 'pending')
             RETURNING id;
         `;
-        const values = [userId, title, categoryId, listingTypeId || 1, lng, lat, address, finalDetails, coverImagePath]; 
+        */
+
+        const query = `
+            INSERT INTO listings 
+                (user_id, title, category_id, listing_type_id, location, address, details, cover_image_path, status, city, province)
+            VALUES 
+                ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography, $7, $8, $9, 'pending', $10, $11)
+            RETURNING id;
+        `;
+
+        const values = [
+            userId, 
+            title, 
+            categoryId, 
+            listingTypeId || 1, // ID numérico
+            lng, // Longitud (ST_MakePoint espera Longitud primero)
+            lat, // Latitud
+            address, 
+            finalDetails, 
+            coverImagePath,
+            cityName, // Columna CITY (Nombre de la Localidad)
+            provinceName // Columna PROVINCE (Nombre de la Provincia)
+        ];
+
+        //const values = [userId, title, categoryId, listingTypeId || 1, lng, lat, address, finalDetails, coverImagePath]; 
         
         const result = await db.query(query, values);
         const newListingId = result.rows[0].id;

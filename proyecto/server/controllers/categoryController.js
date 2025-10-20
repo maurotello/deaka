@@ -21,7 +21,7 @@ export const getAllCategories = async (req, res) => {
 export const getMainCategories = async (req, res) => {
     try {
         const { rows } = await db.query(
-            'SELECT id, name, slug, marker_icon_slug FROM categories WHERE parent_id IS NULL ORDER BY name'
+            'SELECT id, name, slug, parent_id, marker_icon_slug FROM categories WHERE parent_id IS NULL ORDER BY name'
         );
         res.status(200).json(rows);
     } catch (error) {
