@@ -14,7 +14,7 @@ import { LocationData } from '@/app/components/LocationPicker';
 interface Category {
     id: number;
     name: string;
-    marker_icon_slug: string | null;
+    marker_icon_slug: string | 'default-pin';
     parent_id: number | null;
 }
 

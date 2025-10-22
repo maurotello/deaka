@@ -97,6 +97,37 @@ const multerEditUploader = multer({
 // =======================================================
 
 
+// =======================================================
+// --- NUEVO: CONFIGURACIÓN DE MULTER PARA ÍCONOS DE CATEGORÍA ---
+// =======================================================
+
+// 4. STORAGE PARA ÍCONOS DE CATEGORÍA
+const iconStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        // 🚨 Guardamos directamente en la carpeta final 'public/icons'
+        // Ajusta el path si tu estructura de proyecto es diferente
+        const dest = path.join(process.cwd(), 'public', 'icons');
+        fs.ensureDirSync(dest); // Crea la carpeta si no existe
+        cb(null, dest);
+    },
+    filename: (req, file, cb) => {
+        // Usamos el slug del formulario + la extensión original
+        // El controlador debe usar este slug para el guardado en DB
+        const slug = req.body.slug || uuidv4(); // Usar slug o un ID temporal como fallback
+        const extension = path.extname(file.originalname).toLowerCase();
+        cb(null, slug + extension); 
+    }
+});
+
+// Middleware de Multer para la subida de un solo campo 'iconFile'
+const uploadIconMiddleware = multer({
+    storage: iconStorage,
+    fileFilter: fileFilter, // Reutilizamos el filtro de imágenes
+    limits: { fileSize: 1024 * 1024 } // Límite de 1MB para íconos
+}).single('iconFile'); // 🚨 'iconFile' debe coincidir con el nombre del campo en el Frontend
+
+// =======================================================
+
 const router = express.Router();
 
 // =======================================================
@@ -122,9 +153,12 @@ router.post('/listings/:id', verifyToken, multerEditUploader, updateListing); //
 router.patch('/listings/:id/status', verifyToken, requireRole(['admin']), updateListingStatus); // 👈 Limpio
 
 
-router.get('/categories/parents', getMainCategories); // <--- USAR ESTA EN EL FRONTEND
+//router.get('/categories/parents', getMainCategories); // <--- USAR ESTA EN EL FRONTEND
 // 2. SUBCATEGORÍAS (Para el segundo selector dependiente)
-router.get('/categories/:parentId/subcategories', getSubcategories); // <--- USAR ESTA EN EL FRONTEND
+//router.get('/categories/:parentId/subcategories', getSubcategories); // <--- USAR ESTA EN EL FRONTEND
+
+router.get('/categories', getCategories); // Ahora solo devuelve padres
+router.get('/categories/:parentId/subcategories', getSubcategories); // Devuelve hijos
 
 
 // RUTAS DE CATEGORÍAS (públicas, no protegidas)
@@ -134,9 +168,24 @@ router.get('/categories/all', getAllCategories);        // Obtener todas (princi
 
 
 // RUTAS DE CATEGORÍAS (protegidas, solo admin)
-router.post('/categories', verifyToken, requireRole(['admin']), createCategory);
-router.patch('/categories/:id', verifyToken, requireRole(['admin']), updateCategory);
+
+router.post(
+    '/categories', 
+    verifyToken, 
+    requireRole(['admin']), 
+    uploadIconMiddleware, // 🚨 APLICAMOS EL NUEVO MIDDLEWARE DE SUBIDA
+    createCategory
+);
+
+router.patch(
+    '/categories/:id', 
+    verifyToken, 
+    requireRole(['admin']), 
+    uploadIconMiddleware, // 🚨 APLICAMOS EL NUEVO MIDDLEWARE DE SUBIDA
+    updateCategory
+);
 router.delete('/categories/:id', verifyToken, requireRole(['admin']), deleteCategory);
+
 
 
 // =======================================================

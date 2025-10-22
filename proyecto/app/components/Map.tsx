@@ -14,7 +14,7 @@ type Listing = {
   title: string;
   latitude: number;
   longitude: number;
-  marker_icon_slug: string | null;
+  marker_icon_slug: string | 'default-pin';
 };
 
 interface MapProps {

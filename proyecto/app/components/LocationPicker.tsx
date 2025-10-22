@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useCallback, useEffect, FC } from 'react';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import { Icon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 
 // Interfaces (sin cambios)
 export interface LocationData {
@@ -18,17 +19,54 @@ interface LocationPickerProps {
     onLocationChange: (data: LocationData) => void;
     iconSlug?: string | null;
     initialLocation?: LocationData | null;
-    
-    // 🚨 PROPIEDADES NUEVAS/MODIFICADAS PASADAS DESDE EL PADRE
-    selectedCityName: string; // Nombre de la Localidad (ej: "Viedma")
-    selectedProvinceName: string; // Nombre de la Provincia (ej: "Río Negro")
+    selectedCityName: string;
+    selectedProvinceName: string;
+    // 🚨 NUEVAS PROPIEDADES para las dimensiones del icono
+    iconWidth?: number | null; 
+    iconHeight?: number | null; 
 }
 
-// Lógica de Íconos (Se mantiene)
-const defaultIcon = new Icon({ iconUrl: '/icons/default.png', iconSize: [38, 38]});
-const createCustomIcon = (slug: string | null = null): Icon => {
-    if (!slug) return defaultIcon;
-    return new Icon({ iconUrl: `/icons/${slug}.png`, iconSize: [38, 38] });
+// Lógica de Íconos (🚨 MODIFICADA para usar 'default-pin.png')
+// Establecemos el icono por defecto. ASUME que tienes /public/icons/default-pin.png
+const DEFAULT_ICON_URL = '/icons/default-pin.png';
+
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: DEFAULT_ICON_URL,
+    iconUrl: DEFAULT_ICON_URL,
+    shadowUrl: '/leaflet/images/marker-shadow.png', 
+});
+
+// Lógica de Íconos (Se mantiene la función original)
+/*
+const defaultIcon = new Icon({ 
+    iconUrl: DEFAULT_ICON_URL, 
+    iconSize: [null, 38],
+    // Puedes añadir iconAnchor o popupAnchor si lo necesitas
+});
+*/
+const DEFAULT_ICON_SIZE: [number, number] = [38, 38];
+const createCustomIcon = (
+    slug: string | null = null, 
+    width: number | null = null, 
+    height: number | null = null // Aceptamos altura y ancho
+): Icon => {
+    // Usamos un tamaño específico si se proporcionan, si no, el DEFAULT_ICON_SIZE
+    const iconSize: [number, number] = 
+        (width && height) ? [width, height] : DEFAULT_ICON_SIZE;
+
+    // Si es el ícono por defecto
+    if (!slug || slug === 'default-pin') {
+        return new Icon({ 
+            iconUrl: DEFAULT_ICON_URL, 
+            iconSize: iconSize, // Aplicamos el tamaño también al default
+        });
+    }
+
+    // Para íconos personalizados, si se proporcionaron dimensiones
+    return new Icon({ 
+        iconUrl: `/icons/${slug}.png`, 
+        iconSize: iconSize,
+    });
 };
 
 
@@ -37,7 +75,9 @@ const LocationPicker: FC<LocationPickerProps> = ({
     iconSlug, 
     initialLocation,
     selectedCityName, // Usamos como prop
-    selectedProvinceName // Usamos como prop
+    selectedProvinceName, // Usamos como prop
+    iconWidth,   // <--- Recibimos de las props
+    iconHeight,  // <--- Recibimos de las props
 }) => {
     // Solo necesitamos el estado del Domicilio (Address) y la posición del mapa
     const [address, setAddress] = useState(initialLocation?.address || '');
@@ -101,7 +141,7 @@ const LocationPicker: FC<LocationPickerProps> = ({
         }
     };
     
-    // Lógica del Marker Draggable (se mantiene)
+    // Lógica del Marker Draggable
     const DraggableMarker = () => {
         const markerRef = useRef<any>(null);
         const map = useMap();
@@ -112,7 +152,17 @@ const LocationPicker: FC<LocationPickerProps> = ({
                 if (marker != null) handleManualPositionChange(marker.getLatLng());
             },
         }), [handleManualPositionChange]);
-        return <Marker draggable eventHandlers={eventHandlers} position={markerPosition} ref={markerRef} icon={createCustomIcon(iconSlug)} />;
+
+        return (
+            <Marker 
+                draggable 
+                eventHandlers={eventHandlers} 
+                position={markerPosition} 
+                ref={markerRef} 
+                // 🚨 Pasar las nuevas propiedades a createCustomIcon
+                icon={createCustomIcon(iconSlug, iconWidth, iconHeight)} 
+            />
+        );
     };
     
     const inputClasses = "mt-1 block w-full rounded-md bg-gray-700 border-gray-600 focus:border-green-500 focus:ring-green-500 text-white px-3 py-2";

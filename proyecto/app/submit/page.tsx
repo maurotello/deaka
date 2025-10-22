@@ -13,7 +13,7 @@ import { useAuth } from '../context/AuthContext';
 interface Category {
   id: number;
   name: string;
-  marker_icon_slug: string | null;
+  marker_icon_slug: string | 'default-pin';
   parent_id: number | null;
 }
 
@@ -72,7 +72,10 @@ export default function SubmitPage() {
   
 
   // 🛑 NUEVO ESTADO PARA TIPOS DE LISTADO
-    const [listingTypes, setListingTypes] = useState<{ id: number; name: string; slug: string }[]>([]);
+  const [listingTypes, setListingTypes] = useState<{ id: number; name: string; slug: string }[]>([]);
+  const [listingTypeSlug, setListingTypeSlug] = useState<keyof typeof LISTING_FIELDS>('lugares'); // 🚨 CAMBIO DE NOMBRE: Ahora es el SLUG
+  const [listingTypeId, setListingTypeId] = useState<string>(''); // 🚨 NUEVO ESTADO: ID NUMÉRICO para enviar al backend
+
 
   // Estado de Localización (Mapa) - CRÍTICO: Aquí se define el setter
   const [locationData, setLocationData] = useState<LocationData | null>(null);
@@ -100,6 +103,17 @@ export default function SubmitPage() {
               if (!response.ok) throw new Error('Error al cargar tipos de listado');
               const data = await response.json();
               setListingTypes(data);
+              // 🚨 NUEVA LÓGICA: Establecer el ID del primer tipo como valor por defecto
+              if (data.length > 0) {
+                // 🚨 Buscamos el tipo 'lugares' por defecto para establecer el ID
+                const defaultType = data.find((type: any) => type.slug === 'lugares') || data[0];
+                
+                // 1. Establece el ID numérico por defecto (para enviar al backend)
+                setListingTypeId(defaultType.id.toString()); 
+                
+                // 2. Establece el slug por defecto (para el JSX y LISTING_FIELDS)
+                setListingTypeSlug(defaultType.slug as keyof typeof LISTING_FIELDS); 
+              }
           } catch (error) {
               console.error('No se pudieron cargar los tipos de listado', error);
           }
@@ -257,6 +271,8 @@ export default function SubmitPage() {
     setDetails({});
     setLocationData(null);
     setListingType('lugares');
+    setListingTypeSlug('lugares'); // 🚨 USAR SLUG
+    setListingTypeId(''); // 🚨 NUEVO: Limpiar el ID
     setCoverImage([]);
     setGalleryImages([]);
     setSubcategories([]); 
@@ -300,7 +316,9 @@ export default function SubmitPage() {
 
     // 2. Datos de Listado y Categoría
     formData.append('title', title);
-    formData.append('listingTypeId', listingType);
+    // 🚨 CAMBIO CRÍTICO: Envía el listingTypeId
+    formData.append('listingTypeId', listingTypeId);
+    //formData.append('listingTypeId', listingType);
     formData.append('categoryId', categoryId); // ID final del listado
     
     // 3. Datos de Ubicación (del LocationPicker/Geocoding)
@@ -346,8 +364,8 @@ export default function SubmitPage() {
     }
   };
   
-  const currentFields = LISTING_FIELDS[listingType];
-  const selectedCategoryIconSlug = [...mainCategories, ...subcategories].find(cat => cat.id === parseInt(categoryId, 10))?.marker_icon_slug || null;
+  const currentFields = LISTING_FIELDS[listingTypeSlug];
+  const selectedCategoryIconSlug = [...mainCategories, ...subcategories].find(cat => cat.id === parseInt(categoryId, 10))?.marker_icon_slug || 'default-pin';
 
   if (isCheckingAuth) {
     return (
@@ -381,14 +399,23 @@ export default function SubmitPage() {
               <div>
                   <label className="block text-sm font-medium text-gray-300">Tipo de Listado</label>
                   <select 
-                      value={listingType} 
+                      value={listingTypeId}
                       // 🚨 El onChange debe seguir guardando el SLUG (que es el valor de la opción)
-                      onChange={e => setListingType(e.target.value as keyof typeof LISTING_FIELDS)} 
+                      onChange={e => {
+                        const newId = e.target.value;
+                        setListingTypeId(newId);
+                        // 🚨 Encontrar el slug correspondiente para actualizar los campos
+                        const selectedType = listingTypes.find(type => type.id.toString() === newId);
+                        if (selectedType) {
+                            setListingTypeSlug(selectedType.slug as keyof typeof LISTING_FIELDS);
+                        }
+                      }}
                       className="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 focus:border-green-500 focus:ring focus:ring-green-500 focus:ring-opacity-50 px-3 py-2 text-white"
                   >
                       {/* Renderizar opciones desde el estado dinámico */}
                       {listingTypes.map(type => (
-                          <option key={type.id} value={type.slug}>{type.name}</option>
+                          // 🚨 CRÍTICO: El valor debe ser el ID numérico
+                          <option key={type.id} value={type.id.toString()}>{type.name}</option>
                       ))}
                   </select>
               </div>
